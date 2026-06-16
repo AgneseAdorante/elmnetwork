@@ -1,0 +1,45 @@
+defaults:
+  - hydra: hydra_default
+  - setup: cluster_default
+  - model: elmnet_shd_adding
+  - training: elmnet_shd_adding
+  - _self_
+
+setup:
+  config_key: a
+  num_memory_dict:
+    a: 2
+    b: 3
+    c: 4
+    d: 5
+    e: 7
+    f: 9
+    g: 11
+    h: 15
+    i: 20
+    j: 25
+  num_hidden_dict:
+    a: 155
+    b: 130
+    c: 111
+    d: 96
+    e: 73
+    f: 57
+    g: 46
+    h: 32
+    i: 21
+    j: 15
+model:
+  layer_config:
+    neuron_config:
+      num_memory: "${setup.num_memory_dict[${setup.config_key}]}"
+  num_hidden: "${setup.num_hidden_dict[${setup.config_key}]}"
+
+hydra:
+  searchpath:
+    - file://configs
+  mode: MULTIRUN
+  sweeper:
+    params:
+      # setup.seed: 0, 1, 2
+      setup.config_key: a, b, c, d, e, f, g, h, i, j

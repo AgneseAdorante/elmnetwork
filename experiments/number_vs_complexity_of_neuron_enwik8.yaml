@@ -1,0 +1,52 @@
+defaults:
+  - hydra: hydra_default
+  - setup: cluster_default
+  - model: elmnet_enwik8
+  - training: elmnet_enwik8
+  - _self_
+
+setup:
+  config_key: a
+  num_memory_dict:
+    a: 5
+    b: 10
+    c: 15
+    d: 20
+    e: 25
+    f: 30
+    g: 35
+    h: 40
+    i: 45
+    j: 50
+    k: 60
+    l: 70
+    m: 85
+    n: 100
+  num_hidden_dict:
+    a: 2398
+    b: 1500
+    c: 1024
+    d: 742
+    e: 561
+    f: 440
+    g: 353
+    h: 290
+    i: 243
+    j: 206
+    k: 153
+    l: 118
+    m: 85
+    n: 64
+model:
+  layer_config:
+    neuron_config:
+      num_memory: "${setup.num_memory_dict[${setup.config_key}]}"
+  num_hidden: "${setup.num_hidden_dict[${setup.config_key}]}"
+
+hydra:
+  searchpath:
+    - file://configs
+  mode: MULTIRUN
+  sweeper:
+    params:
+      setup.config_key: a, b, c, d, e, f, g, h, i, j, k, l, m, n

@@ -1,0 +1,20 @@
+num_hidden: 96
+output_embedding: "linear_layer"
+layer_config:
+  input_wiring_args:
+    recurrent_connect: 0.25
+  neuron_config:
+    input_scale: 10.0
+    num_branch: 30
+    num_synapse_per_branch: 10
+    num_memory: 5
+    memory_tau_min: 1.0
+    memory_tau_max: 500.0
+    high_pass_tau: 5.0
+  input_dropout: 0.2
+  recurrent_dropout: 0.2
+last_layer_override:
+  # overrides layer_config
+  neuron_config:
+    num_memory: 3
+    mlp_num_hidden_layer: 0

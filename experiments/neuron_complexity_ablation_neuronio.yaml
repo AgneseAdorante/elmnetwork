@@ -1,0 +1,15 @@
+defaults:
+  - hydra: hydra_default
+  - setup: cluster_default
+  - model: elm_neuronio
+  - training: elm_neuronio
+  - _self_
+
+hydra:
+  searchpath:
+    - file://configs
+  mode: MULTIRUN
+  sweeper:
+    params:
+      # setup.seed: 0, 1, 2
+      model.num_memory: 2, 3, 5, 7, 10, 15, 20, 25, 35, 50, 75, 100

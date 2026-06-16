@@ -1,0 +1,8 @@
+input_to_synapse_routing: 'neuronio_routing'
+num_synapse_per_branch: 100
+num_branch: 45
+branch_tau: 5.0
+num_memory: 20
+memory_tau_max: 150.0
+neuronio_synapse_init: 0.5
+neuronio_spike_bias: -5.0

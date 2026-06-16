@@ -1,0 +1,15 @@
+train_script: "traning_script_neuronio.py"
+input_window_size: 500
+num_epochs: 35
+batches_per_epoch: 10000
+batch_size: 8
+learning_rate: 5e-4
+optimizer: 'adam'
+scheduler: 'cosine'
+burn_in_time: 150
+warmup_steps: 0
+clip_norm: 1.0
+select_rmse: True
+file_load_fraction: 0.3
+num_workers: 10
+num_prefetch_batch: 100

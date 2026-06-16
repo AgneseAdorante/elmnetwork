@@ -1,0 +1,13 @@
+experiment_base_folder: <PATH TO FOLDER FOR SAVING ARTIFACTS>
+datasets_base_folder: <PATH TO FOLDER CONTAINING DATASETS>
+custom_code_folder: <PATH TO THIS REPO>/elmnetwork/src
+wandb_logging: False
+wandb_entity_name: <ENTITY NAME>
+wandb_project_name: <PROJECT NAME>
+wandb_api_key_path: <PATH TO API KEY>/.wandb/api_key.txt
+wandb_upload_weights: False
+conda_install_path: <PATH TO CONDA SCRIPT>/conda.sh
+conda_env_name: elmnetwork_env
+matmul_precision: "float32"
+debug_run: True
+seed: 0

@@ -1,0 +1,26 @@
+train_script: "training_script_enwik8.py"
+seq_length: 100
+num_turns: 750
+steps_per_turn: 400
+batch_size: 8
+valid_batch_size: 8
+train_eval_batches: 200
+label_smoothing: 1e-4
+learning_rate: 5e-4
+scheduler: "cosine"
+optimizer: "adam"
+hidden_state_reuse: True
+hidden_state_dropout: 0.01
+hidden_state_warmup_steps: 40000
+burn_in_time: 0
+warmup_steps: 100
+clip_norm: 1.0
+reg_config:
+  neuron_mlp_magnitude:
+    layers: [0]
+    strength: 0.01
+    proportional: False
+  population_activity:
+    layers: [0]
+    strength: 1.0
+    proportional: False

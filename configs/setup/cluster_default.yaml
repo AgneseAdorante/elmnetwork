@@ -1,0 +1,19 @@
+experiment_base_folder: <PATH TO FOLDER FOR SAVING ARTIFACTS>
+datasets_base_folder: <PATH TO FOLDER CONTAINING DATASETS>
+custom_code_folder: <PATH TO THIS REPO>/elmnetwork/src
+wandb_logging: True
+wandb_entity_name: <ENTITY NAME>
+wandb_project_name: <PROJECT NAME>
+wandb_api_key_path: <PATH TO API KEY>/.wandb/api_key.txt
+wandb_upload_weights: False
+slurm_partition: <PARTITION NAME>
+slurm_timeout_h: 24
+slurm_gpus: 1
+slurm_cpus: 18
+slurm_memory_gb: 120
+slurm_gpu_type: 'a100'
+conda_install_path: <PATH TO CONDA SCRIPT>/conda.sh
+conda_env_name: elmnetwork_env_gpu
+matmul_precision: 'float32'
+debug_run: False
+seed: 0

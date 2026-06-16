@@ -1,0 +1,47 @@
+# NOTE: configures folder hierarchy and naming for sweep of runs
+# NOTE: example experiment call and resultsing structure below
+#
+# python my_app.py --multirun batch_size=16,32 learning_rate=0.001 seed=1,2,3
+#
+# experiment_base_folder/config_name
+# ├── multirun.yaml
+# ├── batch_size=16,learning_rate=0.001
+# │   ├── seed=1
+# │   ├── seed=2
+# │   └── seed=3
+# └── batch_size=32,learning_rate=0.001
+#     ├── seed=1
+#     ├── seed=2
+#     └── seed=3
+
+output_subdir: hydra_setup
+sweep:
+  dir: ${setup.experiment_base_folder}/${hydra.job.config_name}
+  subdir: ${hydra.job.override_dirname}/setup.seed=${setup.seed}
+job:
+  name: hydra_setup
+  chdir: true
+  config:
+    override_dirname:
+      # should exclude all setup keys
+      exclude_keys:
+        - setup.experiment_base_folder
+        - setup.datasets_base_folder
+        - setup.custom_code_folder
+        - setup.wandb_logging
+        - setup.wandb_entity_name
+        - setup.wandb_project_name
+        - setup.wandb_api_key_path
+        - setup.wandb_upload_weights
+        - setup.slurm_partition
+        - setup.slurm_timeout_h
+        - setup.slurm_gpus
+        - setup.slurm_cpus
+        - setup.slurm_memory_gb
+        - setup.slurm_gpu_type
+        - setup.conda_install_path
+        - setup.conda_env_name
+        - setup.matmul_precision
+        - setup.debug_run
+        - setup.deterministic
+        - setup.seed # special
