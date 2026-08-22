@@ -39,6 +39,7 @@ INPUT_ROUTINGS = ["random_routing", "neuronio_routing"]
 MLP_ACTIVATIONS = ["relu", "relu_squared", "silu"]
 INPUT_EMBEDDINGS = ["scaled", "one_hot"]
 NEURON_ACTIVATIONS = ["identity", "relu", "spike"]
+SYNAPSE_RECTIFICATIONS = ["identity", "relu", "abs", "exp"]
 
 
 @jaxtyped(typechecker=typechecker)
@@ -74,6 +75,9 @@ class ELM(eqx.Module, DynamicModel):
     high_pass_tau: Optional[float] = eqx.field(static=True)
     neuron_activation: str = eqx.field(static=True)
     neuron_activation_fun: Callable = eqx.field(static=True)
+
+    # synapse rectification:
+    synapse_rect: Optional[str] = eqx.field(static=True)
 
     # neuronio required:
     neuronio_synapse_init: Optional[float] = eqx.field(static=True)
@@ -123,6 +127,8 @@ class ELM(eqx.Module, DynamicModel):
         # readout and filter:
         high_pass_tau: Optional[float] = None,
         neuron_activation: str = "identity",
+        # synapse rectification:
+        synapse_rect: Optional[str] = None,
         # neuronio required:
         neuronio_synapse_init: Optional[float] = None,
         neuronio_spike_bias: Optional[float] = None,
@@ -183,6 +189,13 @@ class ELM(eqx.Module, DynamicModel):
             Works by computing an exponential moving average of neuron readout.
             The EMA is then subtracted from neuron readout for neuron output.
         - `neuron_activation`: The neuron's activations e.g. `relu` or `spike`.
+        <!-- synapse rectification: -->
+        - `synapse_rect`: What rectification to apply to the synapse weights, one of
+            `identity`, `relu`, `abs` or `exp`. Used for modeling positive-only
+            synapses. When `None` (the default) the rectification is inferred from
+            `neuronio_synapse_init` for backwards compatibility: `relu` if it is set
+            and `identity` otherwise. Set it explicitly to decouple the choice of
+            rectification from the constant synapse initialization.
         <!-- neuronio required: -->
         - `neuronio_synapse_init`: Initialize synapses as constant before scaling.
             During training the synapses are rectified using relu to stay positive.
@@ -218,6 +231,8 @@ class ELM(eqx.Module, DynamicModel):
         # readout and filter:
         self.high_pass_tau = high_pass_tau
         self.neuron_activation = neuron_activation
+        # synapse rectification:
+        self.synapse_rect = synapse_rect
         # neuronio required:
         self.neuronio_synapse_init = neuronio_synapse_init
         self.neuronio_spike_bias = neuronio_spike_bias
@@ -321,9 +336,22 @@ class ELM(eqx.Module, DynamicModel):
     @property
     @jaxtyped(typechecker=typechecker)
     def w_s(self) -> Float[Array, "{self.num_synapse}"]:
-        if self.neuronio_synapse_init is not None:
+        synapse_rect = self.synapse_rect
+        if synapse_rect is None:
+            # backwards compatible default: rectification was previously tied to
+            # the constant synapse initialization used for neuronio
+            synapse_rect = "relu" if self.neuronio_synapse_init is not None else "identity"
+
+        if synapse_rect == "identity":
+            return self._w_s
+        elif synapse_rect == "relu":
             return jnn.relu(self._w_s)
-        return self._w_s
+        elif synapse_rect == "abs":
+            return jnp.abs(self._w_s)
+        elif synapse_rect == "exp":
+            return jnp.exp(self._w_s)
+        else:
+            raise NotImplementedError
 
     @property
     @jaxtyped(typechecker=typechecker)
@@ -679,6 +707,9 @@ class ELM(eqx.Module, DynamicModel):
         assert self.memory_tau_range_scale >= 1.0
         assert self.high_pass_tau is None or self.high_pass_tau > 0
         assert self.neuron_activation in NEURON_ACTIVATIONS
+        assert (
+            self.synapse_rect is None or self.synapse_rect in SYNAPSE_RECTIFICATIONS
+        )
         assert 0.0 <= self.memory_dropout < 1.0
         assert 0.0 <= self.input_dropout < 1.0
         assert self.input_embedding is None or self.input_embedding in INPUT_EMBEDDINGS

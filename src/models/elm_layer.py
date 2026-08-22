@@ -11,8 +11,8 @@ from jaxtyping import Array, Float, Integer, PRNGKeyArray, Shaped, jaxtyped
 from typeguard import typechecked as typechecker
 
 from .abstract_model import DynamicModel
-from .elm_modeling_utils import random_connect
 from .elm_neuron import ELM, NEURON_MONITORS, Input, Monitor, NeuronCarry, NeuronRecord
+from .elm_wiring import WIRING_REGISTRY
 
 # below properties are vectorized neuron properties
 EnsembleState = dict[str, Float[Array, "neuron ..."]]
@@ -48,9 +48,7 @@ LAYER_MONITORS = [
     "activity",
 ]
 ALL_MONITORS = (LAYER_MONITORS, NEURON_MONITORS)
-INPUT_WIRINGS = [
-    "random",
-]
+INPUT_WIRINGS = list(WIRING_REGISTRY)
 
 
 # NOTE:
@@ -160,16 +158,13 @@ class ELMLayer(eqx.Module, DynamicModel):
         )
 
         # construct the input connectome matrix
-        if self.input_wiring == "random":
-            self.input_connectome = random_connect(
-                key=input_connectome_key,
-                num_input=self.num_input,
-                num_neuron=self.num_neuron,
-                num_neuron_inputs=neuron_config["num_input"],
-                **self.input_wiring_args,
-            )
-        else:
-            raise NotImplementedError
+        self.input_connectome = WIRING_REGISTRY[self.input_wiring](
+            key=input_connectome_key,
+            num_input=self.num_input,
+            num_neuron=self.num_neuron,
+            num_neuron_inputs=neuron_config["num_input"],
+            **self.input_wiring_args,
+        )
 
         # construct the ensemble of neurons
         ensemble = self.construct_ensemble(
