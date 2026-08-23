@@ -179,6 +179,17 @@ class ELMLayer(eqx.Module, DynamicModel):
         return eqx.filter_vmap(lambda neuron: neuron.tau_m)(self.ensemble)
 
     @jaxtyped(typechecker=typechecker)
+    def effective_weights(self) -> Float[Array, "neuron synapse"]:
+        return eqx.filter_vmap(lambda neuron: neuron.w_s)(self.ensemble)
+
+    @jaxtyped(typechecker=typechecker)
+    def feedforward_weights(self) -> Float[Array, "neuron synapse"]:
+        is_feedforward = (self.input_connectome >= 0) & (
+            self.input_connectome < self.num_input
+        )
+        return jnp.where(is_feedforward, self.effective_weights(), 0.0)
+
+    @jaxtyped(typechecker=typechecker)
     def construct_ensemble(
         self,
         key: PRNGKeyArray,

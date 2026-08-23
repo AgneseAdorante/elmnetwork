@@ -1,0 +1,23 @@
+defaults:
+  - hydra: hydra_default
+  - setup: cluster_default
+  - model: elmnet_shd
+  - training: elmnet_shd
+  - _self_
+
+# structured on the cochlear frequency axis, recurrence left random
+model:
+  layer_config:
+    input_wiring: "structured_ff_random_rec"
+    input_wiring_args:
+      num_modules: 10
+      input_overlap: 0.05
+      recurrence: "random"
+
+hydra:
+  searchpath:
+    - file://configs
+  mode: MULTIRUN
+  sweeper:
+    params:
+      setup.seed: 0,1,2,3,4,5,6,7,8,9

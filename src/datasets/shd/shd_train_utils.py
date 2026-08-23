@@ -49,7 +49,9 @@ def shd_loss(
         y = optax.smooth_labels(y, label_smoothing)
     loss = jnp.mean(optax.safe_softmax_cross_entropy(logits, y))
     if regularizer is not None:
-        loss = loss + jnp.mean(eqx.filter_vmap(lambda x: regularizer(x))(recording))
+        loss = loss + jnp.mean(
+            eqx.filter_vmap(lambda x: regularizer(x, model=model))(recording)
+        )
     logits = logits if return_logits else None
     carry = carry if return_carry else None
     return loss, (logits, carry)

@@ -1,0 +1,36 @@
+train_script: "training_script_dvs.py"
+dataset_name: "cifar10_dvs"
+dataset_folder: "CIFAR10DVS/frames_number_20_split_by_number"
+input_size: 64
+direction_selective: True
+spatial_bin_size: 2
+valid_fraction: 0.1
+test_fraction: 0.1
+eval_batch_size: 8
+num_epochs: 50
+batch_size: 8
+num_workers: 0
+label_smoothing: 1e-2
+learning_rate: 5e-3
+optimizer: "adamax"
+scheduler: "cosine"
+warmup_steps: 400
+clip_norm: 1.0
+# translation augmentation, disabled for the scrambled condition
+translate_max_shift: 0
+# permuted-block control
+shuffle_inputs: False
+permutation_seed: 42
+reg_config:
+  neuron_mlp_magnitude:
+    layers: [0]
+    strength: 0.01
+    proportional: False
+  population_activity:
+    layers: [0]
+    strength: 1.0
+    proportional: False
+  connectivity_weights:
+    layers: [0]
+    strength: 0.01
+    proportional: False

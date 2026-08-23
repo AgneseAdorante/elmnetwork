@@ -5,7 +5,6 @@ import time
 from pathlib import Path
 
 import equinox as eqx
-import h5py
 import hydra
 import jax
 import jax.numpy as jnp
@@ -17,16 +16,20 @@ import wandb
 from omegaconf import DictConfig, OmegaConf
 from tqdm import tqdm
 
-from src.datasets.shd.shd_data_loader import SHD, SHDAdding, random_val_split_SHD_data
+import torch
+from torch.utils.data import DataLoader
+
+from src.datasets.cifar10_dvs.cifar10_dvs_dataset import CIFAR10DVSPreprocessedDataset
+from src.datasets.dvs_gesture.dvs_dataset import (
+    PreprocessedNpzDataset,
+    RandomTranslateEventFrames,
+)
 from src.datasets.shd.shd_train_utils import shd_loss, shd_make_step
-from src.datasets.shd.shd_viz_utils import visualize_network_inference
-from src.models.elm_layer import ALL_MONITORS
 from src.models.elm_network import ELMNetwork
 from src.training.reg_schedule import scaled_reg_config
 from src.training.regularizer import ELMNetworkRegularizer
 from src.training.train_utils import (
     calculate_model_cost_and_weight_stats,
-    cast_floats,
     copy_model_to_cpu,
 )
 
@@ -123,99 +126,109 @@ def main(cfg: DictConfig):
     ########## Data ##########
     print("---------- Data configuration started: ----------")
 
-    # get the downloaded dataset
-    dataset_path = Path(cfg.setup.datasets_base_folder) / "heidelberg"
-    train_file = h5py.File(os.path.join(str(dataset_path), "shd_train.h5"), "r")
-    test_file = h5py.File(os.path.join(str(dataset_path), "shd_test.h5"), "r")
+    # dataset selection: dvs_gesture | cifar10_dvs
+    dataset_name = cfg.training.dataset_name
+    direction_selective = (
+        "ema" if cfg.training.direction_selective else False
+    )
+    shuffle_inputs = OmegaConf.select(cfg, "training.shuffle_inputs", default=False)
+    permutation_seed = OmegaConf.select(cfg, "training.permutation_seed", default=42)
 
-    # training and validation splitting
-    x_train, y_train, x_valid, y_valid = random_val_split_SHD_data(
-        train_file=train_file,
-        valid_fraction=cfg.training.valid_fraction,
-        seed=int(const_eval_seed),
+    # translation augmentation is dropped for the scrambled condition, where
+    # shifting permuted pixels is not a shift of the image
+    max_shift = OmegaConf.select(cfg, "training.translate_max_shift", default=0)
+    train_transform = (
+        RandomTranslateEventFrames(max_shift=max_shift) if max_shift > 0 else None
     )
 
-    # extract the testing dataset
-    x_test = test_file["spikes"]
-    y_test = test_file["labels"]
+    dataset_path = Path(cfg.setup.datasets_base_folder) / cfg.training.dataset_folder
 
-    # initialize dataloaders
-    # permuted-block control: one fixed channel permutation shared by all splits
-    shuffle_inputs = OmegaConf.select(
-        cfg, "training.shuffle_inputs", default=False
-    )
-    permutation_seed = OmegaConf.select(
-        cfg, "training.permutation_seed", default=42
-    )
-
-    if not cfg.training.digit_addition:
-        train_dataset = SHD(
-            X=x_train,
-            y=y_train,
-            batch_size=cfg.training.batch_size,
-            bin_size=cfg.training.bin_size,
-            shuffle=True,
-            test_set=False,
+    if dataset_name == "dvs_gesture":
+        input_size = cfg.training.input_size
+        train = PreprocessedNpzDataset(
+            dataset_path,
+            split="train",
+            direction_selective=direction_selective,
+            transform=train_transform,
+            val_ratio=cfg.training.valid_fraction,
+            seed=42,
             shuffle_inputs=shuffle_inputs,
             permutation_seed=permutation_seed,
+            input_size=input_size,
         )
-        valid_dataset = SHD(
-            X=x_valid,
-            y=y_valid,
-            batch_size=cfg.training.batch_size,
-            bin_size=cfg.training.bin_size,
-            shuffle=False,
-            test_set=False,
+        val = PreprocessedNpzDataset(
+            dataset_path,
+            split="val",
+            direction_selective=direction_selective,
+            val_ratio=cfg.training.valid_fraction,
+            seed=42,
             shuffle_inputs=shuffle_inputs,
             permutation_seed=permutation_seed,
+            input_size=input_size,
         )
-        test_dataset = SHD(
-            X=x_test,
-            y=y_test,
-            batch_size=cfg.training.eval_batch_size,
-            bin_size=cfg.training.bin_size,
-            shuffle=False,
+        test = PreprocessedNpzDataset(
+            dataset_path,
+            split="test",
+            direction_selective=direction_selective,
             shuffle_inputs=shuffle_inputs,
             permutation_seed=permutation_seed,
+            input_size=input_size,
         )
-
-        batches_per_epoch = len(train_dataset) if not cfg.setup.debug_run else 20
-        valid_batches_per_epoch = len(valid_dataset) if not cfg.setup.debug_run else 20
-        test_batches_per_epoch = len(test_dataset) if not cfg.setup.debug_run else 20
+        data_num_classes = 11
+    elif dataset_name == "cifar10_dvs":
+        common = dict(
+            val_ratio=cfg.training.valid_fraction,
+            test_ratio=cfg.training.test_fraction,
+            seed=42,
+            spatial_bin_size=cfg.training.spatial_bin_size,
+            direction_selective=direction_selective,
+        )
+        train = CIFAR10DVSPreprocessedDataset(
+            dataset_path, split="train", transform=train_transform, **common
+        )
+        val = CIFAR10DVSPreprocessedDataset(dataset_path, split="val", **common)
+        test = CIFAR10DVSPreprocessedDataset(dataset_path, split="test", **common)
+        data_num_classes = 10
     else:
-        batches_per_epoch = 2000 if not cfg.setup.debug_run else 20
-        valid_batches_per_epoch = 500 if not cfg.setup.debug_run else 20
-        test_batches_per_epoch = 2000 if not cfg.setup.debug_run else 20
+        raise ValueError(f"Unknown dataset_name {dataset_name!r}")
 
-        train_dataset = SHDAdding(
-            X=x_train,
-            y=y_train,
-            batch_size=cfg.training.batch_size,
-            bin_size=cfg.training.bin_size,
-            batches_per_epoch=batches_per_epoch,
-            shuffle=True,
-        )
-        valid_dataset = SHDAdding(
-            X=x_valid,
-            y=y_valid,
-            batch_size=cfg.training.batch_size,
-            bin_size=cfg.training.bin_size,
-            batches_per_epoch=valid_batches_per_epoch,
-            shuffle=False,
-        )
-        test_dataset = SHDAdding(
-            X=x_test,
-            y=y_test,
-            batch_size=cfg.training.eval_batch_size,
-            bin_size=cfg.training.bin_size,
-            batches_per_epoch=test_batches_per_epoch,
-            shuffle=False,
-        )
+    train_dataset = DataLoader(
+        train,
+        batch_size=cfg.training.batch_size,
+        shuffle=True,
+        num_workers=cfg.training.num_workers,
+        pin_memory=True,
+        drop_last=True,
+    )
+    # NOTE: eval sets are shuffled with a fixed generator. Samples are ordered by
+    # class on disk, so an unshuffled loader truncated by debug_run would only
+    # ever see the first class. The seed keeps the order identical across runs.
+    valid_dataset = DataLoader(
+        val,
+        batch_size=cfg.training.batch_size,
+        shuffle=True,
+        generator=torch.Generator().manual_seed(const_eval_seed),
+        num_workers=cfg.training.num_workers,
+        pin_memory=True,
+        drop_last=True,
+    )
+    test_dataset = DataLoader(
+        test,
+        batch_size=cfg.training.eval_batch_size,
+        shuffle=True,
+        generator=torch.Generator().manual_seed(const_eval_seed),
+        num_workers=cfg.training.num_workers,
+        pin_memory=True,
+        drop_last=True,
+    )
 
-    data_num_input_channel = 700
-    data_num_classes = 20 if not cfg.training.digit_addition else 19
-    data_num_time_bins = test_dataset.num_time_bins
-    example_viz_batch = next(iter(test_dataset))
+    batches_per_epoch = len(train_dataset) if not cfg.setup.debug_run else 20
+    valid_batches_per_epoch = len(valid_dataset) if not cfg.setup.debug_run else 20
+    test_batches_per_epoch = len(test_dataset) if not cfg.setup.debug_run else 20
+
+    example_batch = next(iter(test_dataset))
+    data_num_time_bins = example_batch[0].shape[1]
+    data_num_input_channel = example_batch[0].shape[2]
 
     ########## Model ##########
     print("---------- Model configuration started: ----------")
@@ -266,41 +279,6 @@ def main(cfg: DictConfig):
     }
     if cfg.setup.wandb_logging:
         wandb.log({"model_cost": model_cost})
-
-    ########## Data & Pred Visualization ##########
-    print("---------- Initial visualization started: ----------")
-
-    # deterministic evaluation
-    viz_key, batch_viz_key = jrandom.split(viz_key, 2)
-
-    # convert data
-    inputs = jnp.array(example_viz_batch[0], dtype=jnp.bool)
-    labels = jnp.array(example_viz_batch[1], dtype=jnp.int32)
-
-    # get predictions and recordings
-    batch_viz_keys = jrandom.split(batch_viz_key, cfg.training.eval_batch_size)
-    logits, recordings, _ = jax.vmap(
-        lambda x, key: model(
-            x=x,
-            init_carry=None,
-            key=key,
-            monitor=ALL_MONITORS,
-            inference=True,
-        )
-    )(inputs, batch_viz_keys)
-    recordings = cast_floats(recordings, "float32")
-
-    # visualize predictions
-    visualize_network_inference(
-        inputs=inputs,
-        labels=labels,
-        logits=logits,
-        recordings=recordings,
-        bin_size=cfg.training.bin_size,
-        adding=cfg.training.digit_addition,
-        max_viz_samples=8,
-        path=str(artifacts_dir / "data_and_pred_viz"),
-    )
 
     ########## Scheduler and Optimizer##########
     print("---------- Scheduler and Optimizer configuration started: ----------")
@@ -371,15 +349,20 @@ def main(cfg: DictConfig):
         num_classes: int,
         model_data_sharding=None,
         debug_log: bool = False,
+        max_batches: int = None,
     ):
         eval_loss = 0.0
+        num_batches = 0
         correct_predictions = 0
         total_predictions = 0
         if model_data_sharding is not None:
             model = eqx.filter_shard(model, model_data_sharding[0])
-        for _, data in tqdm(
-            enumerate(eval_iter, 0), total=len(eval_iter), disable=not debug_log
+        total = len(eval_iter) if max_batches is None else max_batches
+        for step, data in tqdm(
+            enumerate(eval_iter, 0), total=total, disable=not debug_log
         ):
+            if max_batches is not None and step >= max_batches:
+                break
             inputs, labels = data
             eval_key, inference_key = jrandom.split(eval_key, 2)
 
@@ -409,14 +392,16 @@ def main(cfg: DictConfig):
                 regularizer=None,  # eval
             )
             eval_loss += loss.item()
+            num_batches += 1
 
             # Calculate accuracy
             predicted = jnp.argmax(logits, 1)
             correct_predictions += jnp.sum(predicted == labels)
             total_predictions += labels.shape[0]
 
-        eval_loss = eval_loss / len(eval_iter)
-        eval_accuracy = correct_predictions / total_predictions
+        # divide by the batches actually seen, which max_batches may cap
+        eval_loss = eval_loss / max(num_batches, 1)
+        eval_accuracy = correct_predictions / max(total_predictions, 1)
 
         return eval_loss, eval_accuracy
 
@@ -469,8 +454,8 @@ def main(cfg: DictConfig):
         for epoch_step, (inputs, labels) in pbar:
             # ------- START OF STEP -------
 
-            # SHD yields the whole split regardless of batches_per_epoch, so cap
-            # the epoch here to keep the step count consistent with the
+            # a torch DataLoader always yields the full dataset, so the epoch is
+            # truncated here instead; keeps the step count consistent with the
             # decay_steps the LR schedule was built with
             if epoch_step >= batches_per_epoch:
                 break
@@ -547,6 +532,7 @@ def main(cfg: DictConfig):
             data_num_classes,
             model_data_sharding=(model_sharding, data_sharding),
             debug_log=cfg.setup.debug_run,
+            max_batches=valid_batches_per_epoch,
         )
 
         # update best model
@@ -597,41 +583,6 @@ def main(cfg: DictConfig):
     eval_key = jrandom.PRNGKey(const_eval_seed)
     eval_key, stats_key, viz_key, valid_key, test_key = jrandom.split(eval_key, 5)
 
-    ########## Qualitative Evaluation ##########
-    print("---------- Qualitative evaluation started: ----------")
-
-    # deterministic evaluation
-    viz_key, batch_viz_key = jrandom.split(viz_key, 2)
-
-    # convert data
-    inputs = jnp.array(example_viz_batch[0], dtype=jnp.bool)
-    labels = jnp.array(example_viz_batch[1], dtype=jnp.int32)
-
-    # get predictions
-    batch_viz_keys = jrandom.split(batch_viz_key, cfg.training.eval_batch_size)
-    logits, recordings, _ = jax.vmap(
-        lambda x, key: model(
-            x=x,
-            init_carry=None,
-            key=key,
-            monitor=ALL_MONITORS,
-            inference=True,
-        )
-    )(inputs, batch_viz_keys)
-    recordings = cast_floats(recordings, "float32")
-
-    # visualize predictions
-    visualize_network_inference(
-        inputs=inputs,
-        labels=labels,
-        logits=logits,
-        recordings=recordings,
-        bin_size=cfg.training.bin_size,
-        adding=cfg.training.digit_addition,
-        max_viz_samples=8,
-        path=str(artifacts_dir / "data_and_pred_viz_after"),
-    )
-
     ########## Quantitative Evaluation ##########
     print("---------- Quantitative evaluation started: ----------")
 
@@ -647,6 +598,7 @@ def main(cfg: DictConfig):
         data_num_classes,
         model_data_sharding=(model_sharding, data_sharding),
         debug_log=cfg.setup.debug_run,
+        max_batches=valid_batches_per_epoch,
     )
 
     # Calculate test performance
@@ -658,6 +610,7 @@ def main(cfg: DictConfig):
         data_num_classes,
         model_data_sharding=(model_sharding, data_sharding),
         debug_log=cfg.setup.debug_run,
+        max_batches=test_batches_per_epoch,
     )
 
     # Logging evaluation metrics

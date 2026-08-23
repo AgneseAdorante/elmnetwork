@@ -1,0 +1,25 @@
+defaults:
+  - hydra: hydra_default
+  - setup: cluster_default
+  - model: elmnet_dvs
+  - training: elmnet_dvs_gesture
+  - _self_
+
+# spatial coordinate: raw ON/OFF frames, 2 channels of 64x64
+training:
+  direction_selective: False
+model:
+  layer_config:
+    input_wiring: "spatial_ff_random_rec"
+    input_wiring_args:
+      input_size: 64
+      num_modules: 32
+      recurrent_connect: 0.0588
+
+hydra:
+  searchpath:
+    - file://configs
+  mode: MULTIRUN
+  sweeper:
+    params:
+      setup.seed: 0,1,2,3,4,5,6,7,8,9

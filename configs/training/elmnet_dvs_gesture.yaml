@@ -1,0 +1,36 @@
+train_script: "training_script_dvs.py"
+dataset_name: "dvs_gesture"
+dataset_folder: "DVS128Gesture/DVS_gesture/frames_number_100_split_by_time_roi128_bin2"
+input_size: 64
+direction_selective: True
+spatial_bin_size: 1
+valid_fraction: 0.2
+test_fraction: 0.0
+eval_batch_size: 8
+num_epochs: 150
+batch_size: 8
+num_workers: 0
+label_smoothing: 1e-2
+learning_rate: 5e-3
+optimizer: "adamax"
+scheduler: "cosine"
+warmup_steps: 400
+clip_norm: 1.0
+# translation augmentation, disabled for the scrambled condition
+translate_max_shift: 8
+# permuted-block control
+shuffle_inputs: False
+permutation_seed: 42
+reg_config:
+  neuron_mlp_magnitude:
+    layers: [0]
+    strength: 0.01
+    proportional: False
+  population_activity:
+    layers: [0]
+    strength: 1.0
+    proportional: False
+  connectivity_weights:
+    layers: [0]
+    strength: 0.01
+    proportional: False

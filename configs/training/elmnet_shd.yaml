@@ -1,0 +1,29 @@
+train_script: "training_script_shd_adding.py"
+digit_addition: False
+bin_size: 2
+valid_fraction: 0.2
+eval_batch_size: 8
+num_epochs: 100
+batch_size: 8
+label_smoothing: 1e-2
+learning_rate: 5e-3
+optimizer: "adamax"
+scheduler: "cosine"
+warmup_steps: 400
+clip_norm: 1.0
+# permuted-block control, set True for the scrambled condition
+shuffle_inputs: False
+permutation_seed: 42
+reg_config:
+  neuron_mlp_magnitude:
+    layers: [0]
+    strength: 0.01
+    proportional: False
+  population_activity:
+    layers: [0]
+    strength: 1.0
+    proportional: False
+  connectivity_weights:
+    layers: [0]
+    strength: 0.01
+    proportional: False

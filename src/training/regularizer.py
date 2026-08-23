@@ -20,8 +20,14 @@ MONITOR_REQUIREMENTS = {
         ],
         [],
     ),
+    # Weight-based targets, they require no monitoring 
+    "connectivity_weights": ([], []),
+    "ff_weights": ([], []),
 }
 REQUIRED_REGULARIZER_KEYS = {"layers", "strength", "proportional"}
+
+# Targets computed from model weights
+WEIGHT_REGULARIZERS = frozenset({"connectivity_weights", "ff_weights"})
 
 
 class Regularizer(eqx.Module, ABC):
@@ -30,7 +36,11 @@ class Regularizer(eqx.Module, ABC):
     def monitor(self) -> Any: ...
 
     @abstractmethod
-    def __call__(self, recording): ...
+    def __call__(self, recording, model=None): ...
+
+    @property
+    def requires_model(self) -> bool:
+        return False
 
 
 class ELMNetworkRegularizer(Regularizer):
@@ -46,6 +56,10 @@ class ELMNetworkRegularizer(Regularizer):
             assert isinstance(cfg["layers"], (list, tuple))
 
     @property
+    def requires_model(self) -> bool:
+        return any(reg_type in WEIGHT_REGULARIZERS for reg_type in self.config)
+
+    @property
     def monitor(self) -> tuple[list[str], list[str]]:
         layer_monitor, ensemble_monitor = [], []
 
@@ -58,7 +72,15 @@ class ELMNetworkRegularizer(Regularizer):
 
         return layer_monitor, ensemble_monitor
 
-    def __call__(self, recording):
+    def __call__(self, recording, model=None):
+
+        if self.requires_model and model is None:
+            raise ValueError(
+                "This regularizer config contains a weight-based target "
+                f"({sorted(set(self.config) & WEIGHT_REGULARIZERS)}) and so "
+                "requires `model=` to be passed to __call__."
+            )
+
         loss = 0.0
 
         for reg_type, cfg in self.config.items():
@@ -66,9 +88,14 @@ class ELMNetworkRegularizer(Regularizer):
             proportional = cfg["proportional"]
 
             for layer in cfg["layers"]:
-                # var = [time, neurons, ...]
-                layer_recording = recording[layer]
-                num_neuron = layer_recording[0]["activity"].shape[1]
+                
+                if reg_type in WEIGHT_REGULARIZERS:
+                    # weight reg needs no recording
+                    num_neuron = model.layers[layer].num_neuron
+                else:
+                    # var = [time, neurons, ...]
+                    layer_recording = recording[layer]
+                    num_neuron = layer_recording[0]["activity"].shape[1]
 
                 if reg_type == "neuron_mlp_magnitude":
                     # encourage small per-neuron MLP outputs
@@ -80,6 +107,17 @@ class ELMNetworkRegularizer(Regularizer):
                     # encourage sparse neuron activity
                     var = layer_recording[0]["activity"]
                     layer_loss = jnp.mean(jnn.relu(var))
+
+                elif reg_type == "connectivity_weights":
+                    # encourage sparse synapse weights
+
+                    var = model.layers[layer].effective_weights()
+                    layer_loss = jnp.mean(jnp.abs(var))
+
+                elif reg_type == "ff_weights":
+                    # encourgae space ff synapse weights
+                    var = model.layers[layer].feedforward_weights()
+                    layer_loss = jnp.mean(jnp.abs(var))
 
                 else:
                     raise NotImplementedError

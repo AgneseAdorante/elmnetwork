@@ -1,0 +1,29 @@
+num_hidden: 110
+output_embedding: "linear_layer"
+layer_config:
+  # every sensory channel feeds every unit, recurrent sources stay random, so
+  # the per-unit budget exceeds the 80 of the other conditions
+  input_wiring: "fully_connected_ff_random_rec"
+  neuron_config:
+    neuron_activation: 'relu'
+    input_scale: 10.0
+    num_branch: 40
+    num_synapse_per_branch: 20
+    num_memory: 5
+    memory_tau_min: 0.1
+    memory_tau_max: 100.0
+    neuronio_synapse_init: 1.0
+    synapse_rect: 'relu'
+  input_dropout: 0.2
+  recurrent_dropout: 0.2
+last_layer_override:
+  # overrides layer_config
+  input_wiring: "fully_connected"
+  input_wiring_args:
+    include_feedforward: True
+    include_recurrent: False
+  neuron_config:
+    num_memory: 3
+    num_branch: 22
+    num_synapse_per_branch: 5
+    mlp_num_hidden_layer: 0

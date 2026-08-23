@@ -48,6 +48,8 @@ class SHD(torch.utils.data.IterableDataset):
         shuffle: bool = False,
         test_set: bool = True,
         seed: int = 0,
+        shuffle_inputs: bool = False,
+        permutation_seed: int = 42,
     ):
         super().__init__()
 
@@ -58,6 +60,15 @@ class SHD(torch.utils.data.IterableDataset):
         self.shuffle = shuffle
         self.test_set = test_set
         self.seed = seed
+        self.shuffle_inputs = shuffle_inputs
+
+        # fixed cochlear-channel permutation, seeded so train/val/test match
+        if self.shuffle_inputs:
+            self.input_permutation = np.random.default_rng(
+                permutation_seed
+            ).permutation(self.num_input_channel)
+        else:
+            self.input_permutation = None
 
         # Load spiking data
         self.labels = np.array(y).astype(np.int32)
@@ -97,6 +108,9 @@ class SHD(torch.utils.data.IterableDataset):
             for batch_count, idx in enumerate(batch_index):
                 times = np.digitize(self.firing_times[idx], self.time_bins) - 1
                 units = self.units_fired[idx]
+                if self.shuffle_inputs:
+                    units = self.input_permutation[units]
+
                 batch = [batch_count for _ in range(len(times))]
 
                 coo[0].extend(batch)

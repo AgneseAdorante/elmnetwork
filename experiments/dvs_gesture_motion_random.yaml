@@ -1,0 +1,21 @@
+defaults:
+  - hydra: hydra_default
+  - setup: cluster_default
+  - model: elmnet_dvs
+  - training: elmnet_dvs_gesture
+  - _self_
+
+# unstructured control on the motion coordinate
+model:
+  layer_config:
+    input_wiring: "random"
+    input_wiring_args:
+      recurrent_connect: 0.0588
+
+hydra:
+  searchpath:
+    - file://configs
+  mode: MULTIRUN
+  sweeper:
+    params:
+      setup.seed: 0,1,2,3,4,5,6,7,8,9

@@ -1,0 +1,29 @@
+defaults:
+  - hydra: hydra_default
+  - setup: cluster_default
+  - model: elmnet_dvs
+  - training: elmnet_dvs_gesture
+  - _self_
+
+# permuted-block control: same wiring, pixel positions permuted
+training:
+  shuffle_inputs: True
+  permutation_seed: 42
+  # shifting permuted pixels is not a shift of the image
+  translate_max_shift: 0
+model:
+  layer_config:
+    input_wiring: "dir_selective_wiring"
+    input_wiring_args:
+      input_size: 64
+      num_channels: 16
+      recurrent_connect: 0.0588
+      cross_channel_recurrent: True
+
+hydra:
+  searchpath:
+    - file://configs
+  mode: MULTIRUN
+  sweeper:
+    params:
+      setup.seed: 0,1,2,3,4,5,6,7,8,9
