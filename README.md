@@ -3,7 +3,7 @@
 
 This repository provides an implementation of the ELM Network in Jax with Equinox, including minimal training scripts and experiment launch orchestration code.
 
-> This repository extends the ELM Network with the input-wiring conditions and event-camera datasets used in *The Computational Value of Sensory-Aligned Receptive Fields Depends on Neuronal Expressivity* (see [Input Wiring extensions](#input-wiring-extensions)). The upstream code is unchanged apart from small additive edits.
+> This repository extends the ELM Network with the input-wiring conditions and event-camera datasets used in *"The Computational Value of Sensory-Aligned Receptive Fields Depends on Neuronal Expressivity"* (see [Input Wiring extensions](#input-wiring-extensions)). The upstream code is unchanged apart from small additive edits.
 
 ![The ELM Neuron and Network](./elm_neuron_network.jpeg)
 
