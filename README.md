@@ -3,6 +3,8 @@
 
 This repository provides an implementation of the ELM Network in Jax with Equinox, including minimal training scripts and experiment launch orchestration code.
 
+> This repository extends the ELM Network with the input-wiring conditions and event-camera datasets used in *The Computational Value of Sensory-Aligned Receptive Fields Depends on Neuronal Expressivity* (see [Input Wiring extensions](#input-wiring-extensions)). The upstream code is unchanged apart from small additive edits.
+
 ![The ELM Neuron and Network](./elm_neuron_network.jpeg)
 
 ## Launching Experiments
@@ -64,6 +66,24 @@ analysis/
 - example trained model, and notebook to load model and run inference
 - additional notebook to retrieve experiments from wandb (some provided) and simple plotting
 - // potentially power-law fitting related analysis code will be added later
+
+## Input Wiring extensions
+
+Additions in this repository, on top of the upstream ELM Network:
+
+- `src/models/elm_wiring.py` -- input wiring conditions (structured, spatial,
+  direction-selective, fully connected), selected per experiment with
+  `layer_config.input_wiring`
+- `src/datasets/dvs_gesture/`, `src/datasets/cifar10_dvs/` -- event-camera
+  dataloaders reading preprocessed npz frames, with optional
+  direction-selective channels and a fixed input permutation
+- `src/training/training_script_dvs.py` -- training script for both event
+  datasets
+- `src/training/reg_schedule.py` -- ramps a regularizer strength over training
+- `configs/`, `experiments/` -- model, training and experiment configurations
+  for the reported conditions
+
+Two upstream files carry additive edits: `ELMLayer` gains weight accessors for the weight-based regularizers, and the SHD dataloader gains an optional input permutation. Both default to the previous behaviour.
 
 ## Environment Setup
 
@@ -139,8 +159,6 @@ Running NeuronIO experiments (very optional) requires first downloading the data
 More details can be found in the following repository: [neuron_as_deep_net](https://github.com/SelfishGene/neuron_as_deep_net)
 
 ## Citation
-
-If you wish to cite us you can do so using
 
 ```
 @article{spieler2026scaling,
