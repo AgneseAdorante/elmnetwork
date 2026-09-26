@@ -3,7 +3,7 @@
 
 This repository provides an implementation of the ELM Network in Jax with Equinox, including minimal training scripts and experiment launch orchestration code.
 
-> This repository extends the ELM Network with the input-wiring conditions and event-camera datasets used in *The Computational Value of Sensory-Aligned Receptive Fields Depends on Neuronal Expressivity* (see [Input Wiring extensions](#input-wiring-extensions)). The upstream code is unchanged apart from small additive edits.
+> This repository extends the ELM Network with the input-wiring conditions and event-camera datasets used in [*The Computational Value of Sensory-Aligned Receptive Fields Depends on Neuronal Expressivity*](https://arxiv.org/abs/2609.26940) (see [Input Wiring extensions](#input-wiring-extensions)).
 
 ![The ELM Neuron and Network](./elm_neuron_network.jpeg)
 
@@ -160,11 +160,26 @@ More details can be found in the following repository: [neuron_as_deep_net](http
 
 ## Citation
 
-```
-@article{spieler2026scaling,
-  title={Scaling Laws and Tradeoffs in Recurrent Networks of Expressive Neurons},
-  author={Spieler, Aaron and Martius, Georg and Levina, Anna},
-  journal={arXiv preprint arXiv:2605.12049},
-  year={2026}
-}
-```
+> If you use the input-wiring conditions, please cite:
+>
+> ```
+> @article{adorante2026receptive,
+>   title={The Computational Value of Sensory-Aligned Receptive Fields Depends on Neuronal Expressivity},
+>   author={Adorante, Agnese and Spieler, Aaron and Levina, Anna},
+>   journal={arXiv preprint arXiv:2609.26940},
+>   year={2026},
+> }
+> ```
+> 
+> For the ELM Network itself, please cite:
+>
+> ```
+> @article{spieler2026scaling,
+>   title={Scaling Laws and Tradeoffs in Recurrent Networks of Expressive Neurons},
+>   author={Spieler, Aaron and Martius, Georg and Levina, Anna},
+>   journal={arXiv preprint arXiv:2605.12049},
+>   year={2026}
+> }
+> ```
+
+
